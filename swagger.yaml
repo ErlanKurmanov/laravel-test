@@ -1,0 +1,138 @@
+openapi: 3.0.0
+info:
+  title: Mini-CRM Ticket API
+  description: API для создания и просмотра заявок.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8000
+    description: Production Server
+
+paths:
+  /api/tickets:
+    post:
+      summary: Создание новой заявки из виджета
+      description: Отправляет данные из формы виджета для создания клиента и заявки.
+      tags:
+        - Tickets
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/StoreTicketRequest'
+      responses:
+        '201':
+          description: Заявка успешно создана
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TicketResource'
+        '422':
+          description: Ошибка валидации (в т.ч. Rate Limit)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+
+  /api/tickets/statistics:
+    get:
+      summary: Получение статистики по заявкам
+      description: Возвращает кол-во заявок за сутки, неделю и месяц. (Требует аутентификации менеджера)
+      tags:
+        - Statistics
+      security:
+        - bearerAuth: [] # Предполагая, что вы добавите Sanctum/JWT для админки
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      daily:
+                        type: integer
+                        example: 5
+                      weekly:
+                        type: integer
+                        example: 25
+                      monthly:
+                        type: integer
+                        example: 110
+
+components:
+  schemas:
+    StoreTicketRequest:
+      type: object
+      required:
+        - customer_name
+        - customer_email
+        - customer_phone
+        - subject
+        - body
+      properties:
+        customer_name:
+          type: string
+          example: "Иван Иванов"
+        customer_email:
+          type: string
+          format: email
+          example: "ivan@test.com"
+        customer_phone:
+          type: string
+          description: "Формат E.164"
+          example: "+79001234567"
+        subject:
+          type: string
+          example: "Проблема с заказом"
+        body:
+          type: string
+          example: "Не могу войти..."
+        files[]:
+          type: string
+          format: binary
+          description: "Массив файлов (до 5 шт.)"
+
+    TicketResource:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            id:
+              type: integer
+              example: 1
+            subject:
+              type: string
+              example: "Проблема с заказом"
+            status:
+              type: string
+              example: "new"
+            created_at:
+              type: string
+              format: date-time
+              example: "2025-11-07T15:00:00.000000Z"
+
+    ValidationError:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "The given data was invalid."
+        errors:
+          type: object
+          properties:
+            customer_email:
+              type: array
+              items:
+                type: string
+                example: "Вы можете отправлять заявку только один раз в 24 часа."
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
